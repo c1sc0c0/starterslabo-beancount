@@ -8,6 +8,7 @@ Writes one JSON object per line to transactions.jsonl.
 from __future__ import annotations
 
 import argparse
+import calendar
 import csv
 import hashlib
 import json
@@ -301,6 +302,111 @@ def normalize_grootboek(path: Path) -> list[dict]:
     return lines
 
 
+def period_to_month_end(period: str) -> str | None:
+    """Convert portal '202609' / '2026-09' to YYYY-MM-DD (last day of month)."""
+    text = (period or "").strip().replace("\xa0", "")
+    if not text:
+        return None
+    digits = re.sub(r"\D", "", text)
+    if len(digits) != 6:
+        return None
+    year, month = int(digits[:4]), int(digits[4:6])
+    if month < 1 or month > 12:
+        return None
+    last = calendar.monthrange(year, month)[1]
+    return f"{year:04d}-{month:02d}-{last:02d}"
+
+
+def normalize_werkingsbijdrage(path: Path) -> list[dict]:
+    """Accrue monthly werkingsbijdrage from resultatenrekening.csv.
+
+    Rule: for each period row with Werkingsbijdrage > 0, book one expense on
+    the last day of that month. Skip title/total rows. Amounts are portal
+    indicative figures (handleiding: raming), so needs_review stays true.
+    """
+    rows = read_csv_rows(path)
+    header_i = None
+    headers: list[str] = []
+    for i, row in enumerate(rows):
+        cells = [(c or "").strip().replace("\xa0", " ") for c in row]
+        if "Werkingsbijdrage" in cells and any(
+            "jaar" in c.lower() and "maand" in c.lower() for c in cells
+        ):
+            header_i, headers = i, cells
+            break
+        if "Werkingsbijdrage" in cells and "Omzet" in cells:
+            header_i, headers = i, cells
+            break
+    if header_i is None:
+        print(f"warning: no resultatenrekening header in {path.name}", file=sys.stderr)
+        return []
+
+    idx = {h: i for i, h in enumerate(headers)}
+    # Period column may be labeled "Jaar & maand" or sit in column index 1
+    period_key = next(
+        (h for h in headers if "jaar" in h.lower() and "maand" in h.lower()),
+        None,
+    )
+
+    out: list[dict] = []
+    for rnum, row in enumerate(rows[header_i + 1 :], start=header_i + 2):
+        def cell(name: str) -> str:
+            i = idx.get(name)
+            if i is None or i >= len(row):
+                return ""
+            return (row[i] or "").strip().replace("\xa0", " ")
+
+        if period_key:
+            period = cell(period_key)
+        else:
+            period = (row[1] if len(row) > 1 else "").strip()
+
+        period_digits = re.sub(r"\D", "", period)
+        if len(period_digits) != 6:
+            # Row shape: cost-center, YYYYMM, … when header offset differs
+            for col in row[:3]:
+                alt = re.sub(r"\D", "", (col or "").strip())
+                if len(alt) == 6 and alt.startswith("20"):
+                    period_digits = alt
+                    break
+            if len(period_digits) != 6:
+                continue
+
+        amount = normalize_amount_str(cell("Werkingsbijdrage"))
+        if amount is None or float(amount) == 0:
+            continue
+
+        date_s = period_to_month_end(period_digits)
+        if not date_s:
+            continue
+
+        ym = f"{period_digits[:4]}-{period_digits[4:6]}"
+        rid = f"werkingsbijdrage:{period_digits}"
+        out.append(
+            {
+                "source": "starterslabo",
+                "kind": "werkingsbijdrage",
+                "id": rid,
+                "date": date_s,
+                "payee": "Starterslabo",
+                "narration": f"Werkingsbijdrage {ym}",
+                "amount": amount,
+                "currency": "EUR",
+                "status": "resultatenrekening",
+                "boekstuknr": rid,
+                "open_amount": "",
+                "portal_account": "",
+                "portal_account_label": "werkingsbijdrage",
+                "payment_state": "",
+                "period": period_digits,
+                "needs_review": True,
+                "csv_file": path.name,
+                "csv_row": rnum,
+            }
+        )
+    return out
+
+
 def discover_files(inbox: Path) -> dict[str, list[Path]]:
     return {
         "sales": sorted(inbox.glob("verkopen*.csv")),
@@ -308,6 +414,11 @@ def discover_files(inbox: Path) -> dict[str, list[Path]]:
         "grootboek": sorted(
             list(inbox.glob("grootboekhistoriek*.csv"))
             + list(inbox.glob("*grootboek*.csv"))
+        ),
+        "resultaten": sorted(
+            p
+            for p in inbox.glob("resultatenrekening*.csv")
+            if "grootboek" not in p.name and "details" not in p.name.lower()
         ),
     }
 
@@ -355,6 +466,8 @@ def main(argv: list[str] | None = None) -> int:
         records.extend(normalize_sales(path, args.include_pending))
     for path in files["purchases"]:
         records.extend(normalize_purchases(path, args.include_pending))
+    for path in files["resultaten"]:
+        records.extend(normalize_werkingsbijdrage(path))
     if not args.skip_grootboek:
         for path in files["grootboek"]:
             # Avoid double-counting empty resultaten detail named *grootboek*
@@ -383,8 +496,13 @@ def main(argv: list[str] | None = None) -> int:
     for kind, n in sorted(counts.items()):
         print(f"  {kind}: {n}")
     if not ordered:
-        if not files["sales"] and not files["purchases"] and not files["grootboek"]:
-            print("warning: no verkopen/aankopen/grootboek CSVs in inbox", file=sys.stderr)
+        if (
+            not files["sales"]
+            and not files["purchases"]
+            and not files["grootboek"]
+            and not files["resultaten"]
+        ):
+            print("warning: no verkopen/aankopen/resultaten/grootboek CSVs in inbox", file=sys.stderr)
             return 2
         print(
             "warning: CSVs present but no data rows "

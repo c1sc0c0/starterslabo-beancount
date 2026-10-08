@@ -10,6 +10,8 @@ defaults:
   clearing: Assets:Clearing:Starterslabo
   payables: Liabilities:Payables:Suppliers
   unknown_expense: Expenses:610999:Other
+  # Monthly fee from resultatenrekening.csv → last day of period
+  werkingsbijdrage: Expenses:Starterslabo:Werkingsbijdrage
 
 # When Te betalen a. leverancier looks like "betaald", credit clearing.
 # Otherwise credit payables (open supplier invoice).

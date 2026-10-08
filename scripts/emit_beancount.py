@@ -121,6 +121,31 @@ def emit_sale(rec: dict, mapping: dict, aliases: dict[str, str]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def emit_werkingsbijdrage(rec: dict, mapping: dict) -> str:
+    """Accrue portal werkingsbijdrage against Starterslabo clearing."""
+    defaults = mapping.get("defaults") or {}
+    amount = fmt_amount(rec["amount"])
+    currency = rec.get("currency") or mapping.get("currency") or "EUR"
+    expense = defaults.get(
+        "werkingsbijdrage", "Expenses:Starterslabo:Werkingsbijdrage"
+    )
+    clearing = defaults.get("clearing", "Assets:Clearing:Starterslabo")
+    lines = [
+        f'{rec["date"]} * {quote_string(rec.get("payee") or "Starterslabo")} '
+        f'{quote_string(rec["narration"])}',
+        f'  starterslabo_id: {quote_string(rec["id"])}',
+        f'  status: {quote_string(rec.get("status") or "resultatenrekening")}',
+        '  source: "resultatenrekening"',
+    ]
+    if rec.get("period"):
+        lines.append(f'  period: {quote_string(str(rec["period"]))}')
+    if rec.get("needs_review"):
+        lines.append("  needs_review: TRUE")
+    lines.append(f"  {expense}  {amount} {currency}")
+    lines.append(f"  {clearing}  -{amount} {currency}")
+    return "\n".join(lines) + "\n"
+
+
 def emit_purchase(rec: dict, mapping: dict, aliases: dict[str, str]) -> str:
     defaults = mapping.get("defaults") or {}
     payee = normalize_payee(rec["payee"], aliases)
@@ -277,6 +302,7 @@ def main(argv: list[str] | None = None) -> int:
 
     sales = [r for r in records if r.get("kind") == "sale"]
     purchases = [r for r in records if r.get("kind") == "purchase"]
+    contributions = [r for r in records if r.get("kind") == "werkingsbijdrage"]
     postings = [r for r in records if r.get("kind") == "posting"]
 
     chunks: list[str] = [
@@ -301,6 +327,13 @@ def main(argv: list[str] | None = None) -> int:
             skipped += 1
             continue
         chunks.append(emit_purchase(rec, mapping, aliases))
+        emitted += 1
+
+    for rec in sorted(contributions, key=lambda r: (r["date"], r["id"])):
+        if rec["id"] in skip_ids:
+            skipped += 1
+            continue
+        chunks.append(emit_werkingsbijdrage(rec, mapping))
         emitted += 1
 
     if not args.skip_postings and postings:

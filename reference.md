@@ -18,7 +18,7 @@ books/main.bean  →  bean-check / bean-query / fava
 
 | Field | Notes |
 |-------|--------|
-| `kind` | `sale` \| `purchase` \| `posting` |
+| `kind` | `sale` \| `purchase` \| `werkingsbijdrage` \| `posting` |
 | `id` | `sale:…` / `purchase:…` — sha256 of key fields or `boekstuknr` |
 | `date` | `YYYY-MM-DD` |
 | `payee` | Klant / Leverancier |
@@ -44,6 +44,17 @@ Assets:Clearing:Starterslabo   -AMOUNT EUR   ; if paid via labo
 ; or
 Liabilities:Payables:Suppliers -AMOUNT EUR   ; if open
 ```
+
+### Werkingsbijdrage (from `resultatenrekening.csv`)
+
+For each period row (`YYYYMM`) with `Werkingsbijdrage` &gt; 0, on the **last day of that month**:
+
+```
+Expenses:Starterslabo:Werkingsbijdrage   AMOUNT EUR
+Assets:Clearing:Starterslabo            -AMOUNT EUR
+```
+
+Stable id: `werkingsbijdrage:YYYYMM`. Skip zero amounts and total rows. Portal figure is a *raming* → `needs_review: TRUE`.
 
 ### Grootboek posting group
 

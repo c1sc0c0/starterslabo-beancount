@@ -1,0 +1,5 @@
+# Optional payee normalization (portal name → canonical payee).
+# Example:
+# aliases:
+#   "AVA NV": "AVA"
+aliases: {}

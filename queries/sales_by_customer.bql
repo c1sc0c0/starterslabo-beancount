@@ -1,0 +1,5 @@
+; Sales by customer (payee on income legs)
+SELECT payee, sum(position)
+WHERE account ~ "^Income:Sales"
+GROUP BY payee
+ORDER BY sum(position)

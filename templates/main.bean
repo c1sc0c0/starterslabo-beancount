@@ -1,0 +1,4 @@
+include "options.bean"
+include "accounts.bean"
+include "manual.bean"
+include "generated/starterslabo.bean"

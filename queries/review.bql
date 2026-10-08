@@ -1,0 +1,4 @@
+; Transactions flagged for human review (pending / incomplete portal data)
+SELECT date, payee, narration, account, position
+WHERE any_meta("needs_review") = TRUE
+ORDER BY date

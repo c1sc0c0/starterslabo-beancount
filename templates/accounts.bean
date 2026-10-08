@@ -1,0 +1,26 @@
+2020-01-01 open Assets:Receivables:Customers
+2020-01-01 open Assets:Clearing:Starterslabo
+2020-01-01 open Assets:Cash
+
+2020-01-01 open Liabilities:Payables:Suppliers
+2020-01-01 open Liabilities:VAT:Pending
+
+2020-01-01 open Equity:Opening
+2020-01-01 open Equity:Conversions
+
+2020-01-01 open Income:Sales
+
+2020-01-01 open Expenses:610999:Other
+2020-01-01 open Expenses:612105:PhoneInternet
+2020-01-01 open Expenses:612115:Subscriptions
+2020-01-01 open Expenses:612125:Software
+2020-01-01 open Expenses:612300:OfficeSupplies
+2020-01-01 open Expenses:613160:Insurance
+2020-01-01 open Expenses:613220:Memberships
+2020-01-01 open Expenses:613265:Training
+2020-01-01 open Expenses:614100:Advertising
+2020-01-01 open Expenses:614317:Mileage
+2020-01-01 open Expenses:614324:MileageAlt
+2020-01-01 open Expenses:614330:PublicTransport
+2020-01-01 open Expenses:614345:Restaurant
+2020-01-01 open Expenses:Starterslabo:Werkingsbijdrage

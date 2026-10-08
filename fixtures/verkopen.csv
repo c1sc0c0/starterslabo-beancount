@@ -1,0 +1,5 @@
+Details,,,,,,
+Factuurdatum,Factuurbedrag,Klant,Boekstuknr,Status,Type,Nog openstaand
+2026-09-15,100.00,Example Customer BV,V-1001,Goedgekeurd,Verkoopfactuur,0.00
+2026-09-20,50.00,Jane Doe,,In behandeling,Verkoopfactuur,
+,150.00,,,,,"0,00"

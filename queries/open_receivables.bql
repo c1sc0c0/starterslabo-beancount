@@ -1,0 +1,4 @@
+; Receivables balance (open customer invoices booked to Assets:Receivables)
+SELECT account, sum(position)
+WHERE account ~ "^Assets:Receivables"
+GROUP BY account

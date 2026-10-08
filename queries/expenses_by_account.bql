@@ -1,0 +1,5 @@
+; Expense totals by account
+SELECT account, sum(position)
+WHERE account ~ "^Expenses:"
+GROUP BY account
+ORDER BY account

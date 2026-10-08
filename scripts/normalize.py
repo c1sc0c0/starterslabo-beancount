@@ -317,24 +317,29 @@ def period_to_month_end(period: str) -> str | None:
     return f"{year:04d}-{month:02d}-{last:02d}"
 
 
-def normalize_werkingsbijdrage(path: Path) -> list[dict]:
-    """Accrue monthly werkingsbijdrage from resultatenrekening.csv.
+# Resultatenrekening P&L columns → IR kind + narration label.
+# Only non-zero amounts are imported (so one-off Verzekering appears once).
+RESULTATEN_ACCRUALS = (
+    ("Werkingsbijdrage", "werkingsbijdrage", "Werkingsbijdrage"),
+    ("Verzekering", "verzekering", "Verzekering"),
+)
 
-    Rule: for each period row with Werkingsbijdrage > 0, book one expense on
-    the last day of that month. Skip title/total rows. Amounts are portal
-    indicative figures (handleiding: raming), so needs_review stays true.
+
+def normalize_resultaten_accruals(path: Path) -> list[dict]:
+    """Accrue selected resultatenrekening columns (werkingsbijdrage, verzekering).
+
+    Rule: for each period row and each configured column with amount > 0, book
+    one expense on the last day of that month. Skip title/total rows and zeros
+    (so one-off verzekering is not repeated every month).
     """
     rows = read_csv_rows(path)
     header_i = None
     headers: list[str] = []
     for i, row in enumerate(rows):
         cells = [(c or "").strip().replace("\xa0", " ") for c in row]
-        if "Werkingsbijdrage" in cells and any(
-            "jaar" in c.lower() and "maand" in c.lower() for c in cells
+        if "Omzet" in cells and (
+            "Werkingsbijdrage" in cells or "Verzekering" in cells
         ):
-            header_i, headers = i, cells
-            break
-        if "Werkingsbijdrage" in cells and "Omzet" in cells:
             header_i, headers = i, cells
             break
     if header_i is None:
@@ -342,7 +347,6 @@ def normalize_werkingsbijdrage(path: Path) -> list[dict]:
         return []
 
     idx = {h: i for i, h in enumerate(headers)}
-    # Period column may be labeled "Jaar & maand" or sit in column index 1
     period_key = next(
         (h for h in headers if "jaar" in h.lower() and "maand" in h.lower()),
         None,
@@ -363,7 +367,6 @@ def normalize_werkingsbijdrage(path: Path) -> list[dict]:
 
         period_digits = re.sub(r"\D", "", period)
         if len(period_digits) != 6:
-            # Row shape: cost-center, YYYYMM, … when header offset differs
             for col in row[:3]:
                 alt = re.sub(r"\D", "", (col or "").strip())
                 if len(alt) == 6 and alt.startswith("20"):
@@ -372,39 +375,50 @@ def normalize_werkingsbijdrage(path: Path) -> list[dict]:
             if len(period_digits) != 6:
                 continue
 
-        amount = normalize_amount_str(cell("Werkingsbijdrage"))
-        if amount is None or float(amount) == 0:
-            continue
-
         date_s = period_to_month_end(period_digits)
         if not date_s:
             continue
 
         ym = f"{period_digits[:4]}-{period_digits[4:6]}"
-        rid = f"werkingsbijdrage:{period_digits}"
-        out.append(
-            {
-                "source": "starterslabo",
-                "kind": "werkingsbijdrage",
-                "id": rid,
-                "date": date_s,
-                "payee": "Starterslabo",
-                "narration": f"Werkingsbijdrage {ym}",
-                "amount": amount,
-                "currency": "EUR",
-                "status": "resultatenrekening",
-                "boekstuknr": rid,
-                "open_amount": "",
-                "portal_account": "",
-                "portal_account_label": "werkingsbijdrage",
-                "payment_state": "",
-                "period": period_digits,
-                "needs_review": True,
-                "csv_file": path.name,
-                "csv_row": rnum,
-            }
-        )
+        for col_name, kind, label in RESULTATEN_ACCRUALS:
+            if col_name not in idx:
+                continue
+            amount = normalize_amount_str(cell(col_name))
+            if amount is None or float(amount) == 0:
+                continue
+            rid = f"{kind}:{period_digits}"
+            out.append(
+                {
+                    "source": "starterslabo",
+                    "kind": kind,
+                    "id": rid,
+                    "date": date_s,
+                    "payee": "Starterslabo",
+                    "narration": f"{label} {ym}",
+                    "amount": amount,
+                    "currency": "EUR",
+                    "status": "resultatenrekening",
+                    "boekstuknr": rid,
+                    "open_amount": "",
+                    "portal_account": "",
+                    "portal_account_label": kind,
+                    "payment_state": "",
+                    "period": period_digits,
+                    "needs_review": True,
+                    "csv_file": path.name,
+                    "csv_row": rnum,
+                }
+            )
     return out
+
+
+def normalize_werkingsbijdrage(path: Path) -> list[dict]:
+    """Back-compat alias — prefer normalize_resultaten_accruals."""
+    return [
+        r
+        for r in normalize_resultaten_accruals(path)
+        if r.get("kind") == "werkingsbijdrage"
+    ]
 
 
 def discover_files(inbox: Path) -> dict[str, list[Path]]:
@@ -467,7 +481,7 @@ def main(argv: list[str] | None = None) -> int:
     for path in files["purchases"]:
         records.extend(normalize_purchases(path, args.include_pending))
     for path in files["resultaten"]:
-        records.extend(normalize_werkingsbijdrage(path))
+        records.extend(normalize_resultaten_accruals(path))
     if not args.skip_grootboek:
         for path in files["grootboek"]:
             # Avoid double-counting empty resultaten detail named *grootboek*

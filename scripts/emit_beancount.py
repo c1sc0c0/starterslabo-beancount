@@ -121,13 +121,20 @@ def emit_sale(rec: dict, mapping: dict, aliases: dict[str, str]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def emit_werkingsbijdrage(rec: dict, mapping: dict) -> str:
-    """Accrue portal werkingsbijdrage against Starterslabo clearing."""
+RESULTATEN_EXPENSE_DEFAULTS = {
+    "werkingsbijdrage": "Expenses:Starterslabo:Werkingsbijdrage",
+    "verzekering": "Expenses:Starterslabo:Verzekering",
+}
+
+
+def emit_resultaten_accrual(rec: dict, mapping: dict) -> str:
+    """Accrue portal resultatenrekening fee (werkingsbijdrage / verzekering)."""
     defaults = mapping.get("defaults") or {}
+    kind = rec.get("kind") or ""
     amount = fmt_amount(rec["amount"])
     currency = rec.get("currency") or mapping.get("currency") or "EUR"
-    expense = defaults.get(
-        "werkingsbijdrage", "Expenses:Starterslabo:Werkingsbijdrage"
+    expense = defaults.get(kind) or RESULTATEN_EXPENSE_DEFAULTS.get(
+        kind, "Expenses:610999:Other"
     )
     clearing = defaults.get("clearing", "Assets:Clearing:Starterslabo")
     lines = [
@@ -144,6 +151,10 @@ def emit_werkingsbijdrage(rec: dict, mapping: dict) -> str:
     lines.append(f"  {expense}  {amount} {currency}")
     lines.append(f"  {clearing}  -{amount} {currency}")
     return "\n".join(lines) + "\n"
+
+
+def emit_werkingsbijdrage(rec: dict, mapping: dict) -> str:
+    return emit_resultaten_accrual(rec, mapping)
 
 
 def emit_purchase(rec: dict, mapping: dict, aliases: dict[str, str]) -> str:
@@ -302,7 +313,11 @@ def main(argv: list[str] | None = None) -> int:
 
     sales = [r for r in records if r.get("kind") == "sale"]
     purchases = [r for r in records if r.get("kind") == "purchase"]
-    contributions = [r for r in records if r.get("kind") == "werkingsbijdrage"]
+    contributions = [
+        r
+        for r in records
+        if r.get("kind") in RESULTATEN_EXPENSE_DEFAULTS
+    ]
     postings = [r for r in records if r.get("kind") == "posting"]
 
     chunks: list[str] = [
@@ -329,11 +344,11 @@ def main(argv: list[str] | None = None) -> int:
         chunks.append(emit_purchase(rec, mapping, aliases))
         emitted += 1
 
-    for rec in sorted(contributions, key=lambda r: (r["date"], r["id"])):
+    for rec in sorted(contributions, key=lambda r: (r["date"], r["kind"], r["id"])):
         if rec["id"] in skip_ids:
             skipped += 1
             continue
-        chunks.append(emit_werkingsbijdrage(rec, mapping))
+        chunks.append(emit_resultaten_accrual(rec, mapping))
         emitted += 1
 
     if not args.skip_postings and postings:

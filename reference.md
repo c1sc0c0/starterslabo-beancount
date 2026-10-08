@@ -18,7 +18,7 @@ books/main.bean  →  bean-check / bean-query / fava
 
 | Field | Notes |
 |-------|--------|
-| `kind` | `sale` \| `purchase` \| `werkingsbijdrage` \| `posting` |
+| `kind` | `sale` \| `purchase` \| `werkingsbijdrage` \| `verzekering` \| `posting` |
 | `id` | `sale:…` / `purchase:…` — sha256 of key fields or `boekstuknr` |
 | `date` | `YYYY-MM-DD` |
 | `payee` | Klant / Leverancier |
@@ -45,16 +45,17 @@ Assets:Clearing:Starterslabo   -AMOUNT EUR   ; if paid via labo
 Liabilities:Payables:Suppliers -AMOUNT EUR   ; if open
 ```
 
-### Werkingsbijdrage (from `resultatenrekening.csv`)
+### Resultatenrekening accruals (`werkingsbijdrage`, `verzekering`)
 
-For each period row (`YYYYMM`) with `Werkingsbijdrage` &gt; 0, on the **last day of that month**:
+For each period row (`YYYYMM`) and each column with amount &gt; 0, on the **last day of that month**:
 
 ```
-Expenses:Starterslabo:Werkingsbijdrage   AMOUNT EUR
+Expenses:Starterslabo:Werkingsbijdrage   AMOUNT EUR   ; column Werkingsbijdrage
+Expenses:Starterslabo:Verzekering        AMOUNT EUR   ; column Verzekering (often one-off)
 Assets:Clearing:Starterslabo            -AMOUNT EUR
 ```
 
-Stable id: `werkingsbijdrage:YYYYMM`. Skip zero amounts and total rows. Portal figure is a *raming* → `needs_review: TRUE`.
+Stable ids: `werkingsbijdrage:YYYYMM`, `verzekering:YYYYMM`. **Zeros are skipped** (so verzekering is not repeated every month). Portal figures are a *raming* → `needs_review: TRUE`.
 
 ### Grootboek posting group
 

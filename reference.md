@@ -3,16 +3,18 @@
 ## Pipeline
 
 ```
-starterslabo-export/rapport-export/*.csv
+export_dir/*.csv          ← resolved via paths.py (see docs/PATHS.md)
         ↓ sync_books (copy)
-books/inbox/
+books_dir/inbox/
         ↓ normalize.py
-books/imports/starterslabo/transactions.jsonl
+books_dir/imports/starterslabo/transactions.jsonl
         ↓ emit_beancount.py
-books/generated/starterslabo.bean
+books_dir/generated/starterslabo.bean
         ↓ include
-books/main.bean  →  bean-check / bean-query / fava
+books_dir/main.bean  →  bean-check / bean-query / fava
 ```
+
+Zero-config defaults: export skill `rapport-export/`; books = first `books/main.bean` found walking parents.
 
 ## Intermediate JSONL fields
 
@@ -87,10 +89,12 @@ include "generated/starterslabo.bean"
 ```text
 normalize.py --inbox DIR --out transactions.jsonl [--include-pending|--no-include-pending]
 emit_beancount.py --in JSONL --out generated.bean [--mapping YAML] [--ledger main.bean]
-sync_books.py [--from-export DIR] [--no-copy] [--skip-check]
+sync_books.py [--from-export DIR] [--books-dir DIR] [--no-copy] [--skip-check] [--print-paths]
 ```
 
 Exit `2` = missing paths/credentials-like setup errors. `bean-check` non-zero = ledger invalid.
+
+Path resolution: [`docs/PATHS.md`](docs/PATHS.md). Module: `scripts/paths.py`.
 
 ## Grootboekhistoriek schema (portal)
 

@@ -21,20 +21,25 @@ Start a new agent chat so the skill is picked up.
 
 ## Private books/ (once per workspace)
 
-Create a `books/` directory beside your project (gitignored for inbox/generated):
+Create a `books/` directory (gitignored for inbox/generated). Prefer a shared data root with the export skill:
 
 ```bash
-mkdir -p books/{mapping,imports/starterslabo,generated,inbox,queries}
-cp .cursor/skills/starterslabo-beancount/scripts/accounts.yaml.example books/mapping/accounts.yaml
-cp .cursor/skills/starterslabo-beancount/scripts/payees.yaml.example books/mapping/payees.yaml
-cp .cursor/skills/starterslabo-beancount/queries/*.bql books/queries/
+mkdir -p ~/labo-data/{export,books/{mapping,imports/starterslabo,generated,inbox,queries}}
+cp starterslabo.yaml.example ~/labo-data/starterslabo.yaml
+cp scripts/accounts.yaml.example ~/labo-data/books/mapping/accounts.yaml
+cp scripts/payees.yaml.example ~/labo-data/books/mapping/payees.yaml
+cp queries/*.bql ~/labo-data/books/queries/
+export STARTERSLABO_DATA=~/labo-data
 ```
 
-Add `main.bean` / `accounts.bean` / `options.bean` / `manual.bean` as in [`reference.md`](reference.md) (or copy from a StartersLabo workspace that already has them).
+Add `main.bean` / `accounts.bean` / `options.bean` / `manual.bean` as in [`reference.md`](reference.md).
+
+Path rules (CLI / env / yaml / defaults): [`docs/PATHS.md`](docs/PATHS.md). Human pipeline: [`docs/OVERVIEW.md`](docs/OVERVIEW.md).
 
 ```bash
 python3 -m venv .venv
-.venv/bin/pip install -r .cursor/skills/starterslabo-beancount/scripts/requirements.txt
+.venv/bin/pip install -r scripts/requirements.txt
+.venv/bin/python scripts/sync_books.py --print-paths
 ```
 
 ## Use
@@ -46,15 +51,16 @@ Tell the agent:
 Or manually:
 
 ```bash
-# 1) Portal → CSV (sister skill)
-.cursor/skills/starterslabo-export/.venv/bin/python \
-  .cursor/skills/starterslabo-export/scripts/sync_rapport.py --force
+# 1) Portal → CSV (sister skill) — same STARTERSLABO_* / yaml
+python /path/to/starterslabo-export/scripts/sync_rapport.py --force
 
 # 2) CSV → Beancount
-.venv/bin/python .cursor/skills/starterslabo-beancount/scripts/sync_books.py
+.venv/bin/python scripts/sync_books.py
 
 # 3) Query
-.venv/bin/bean-query books/main.bean < .cursor/skills/starterslabo-beancount/queries/expenses_by_account.bql
+.venv/bin/bean-query "$STARTERSLABO_BOOKS/main.bean" \
+  < queries/expenses_by_account.bql
+# or books/main.bean if using the local default layout
 ```
 
 Optional UI: `.venv/bin/fava books/main.bean`
@@ -62,8 +68,8 @@ Optional UI: `.venv/bin/fava books/main.bean`
 ### Fixture dry-run (no portal)
 
 ```bash
-.venv/bin/python .cursor/skills/starterslabo-beancount/scripts/sync_books.py \
-  --from-export .cursor/skills/starterslabo-beancount/fixtures
+.venv/bin/python scripts/sync_books.py \
+  --from-export fixtures --books-dir /path/to/books --skip-check
 ```
 
 ## What gets booked (MVP)
@@ -72,6 +78,7 @@ Optional UI: `.venv/bin/fava books/main.bean`
 |-----|------------------|
 | `verkopen.csv` | Dr Receivables / Cr Income:Sales |
 | `aankopen.csv` | Dr Expenses:{rekening} / Cr Clearing (if betaald) or Payables |
+| `resultatenrekening.csv` | Werkingsbijdrage + Verzekering (non-zero) / Cr Clearing |
 | `grootboekhistoriek*.csv` | Multi-leg groups by `boekstuknr` when rows exist (often empty from portal) |
 
 Stable metadata: `starterslabo_id`. Regenerated file: `books/generated/starterslabo.bean`. Hand edits: `books/manual.bean`.

@@ -1,0 +1,13 @@
+# Copy next to your data root and set:
+#   export STARTERSLABO_CONFIG=/absolute/path/to/this/file
+# or:
+#   export STARTERSLABO_DATA=/absolute/path/to/this/directory
+#
+# Relative paths resolve against this file's directory
+# (unless data_root is set).
+#
+# Do NOT put portal passwords here.
+
+# data_root: .          # optional; defaults to this file's directory
+export_dir: export      # Rapport CSV flat files (from starterslabo-export)
+books_dir: books        # Beancount root containing main.bean

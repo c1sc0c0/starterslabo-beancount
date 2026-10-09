@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import shutil
 import subprocess
 import sys
@@ -15,24 +16,13 @@ if str(_SCRIPTS) not in sys.path:
 
 from normalize import books_root, main as normalize_main  # noqa: E402
 from emit_beancount import main as emit_main  # noqa: E402
-
-
-def default_export_dir(books: Path) -> Path:
-    root = books.parent
-    candidates = [
-        root / ".cursor" / "skills" / "starterslabo-export" / "rapport-export",
-        root / ".cursor" / "skills" / "starterslabo-rapport" / "rapport-export",
-        _SCRIPTS.parent / "fixtures",
-    ]
-    for c in candidates:
-        if c.is_dir() and any(c.glob("*.csv")):
-            return c
-    return candidates[0]
+from paths import describe_paths, export_dir  # noqa: E402
 
 
 def bean_check_bin() -> list[str]:
     for path in (
         books_root().parent / ".venv" / "bin" / "bean-check",
+        Path.cwd() / ".venv" / "bin" / "bean-check",
         _SCRIPTS.parent / ".venv" / "bin" / "bean-check",
         Path(shutil.which("bean-check") or ""),
     ):
@@ -62,9 +52,21 @@ def run_bean_check(ledger: Path) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Sync Starterslabo CSVs into Beancount")
-    p.add_argument("--from-export", type=Path, default=None)
+    p.add_argument(
+        "--from-export",
+        type=Path,
+        default=None,
+        help="CSV source dir (default: resolved export_dir from paths.py)",
+    )
+    p.add_argument(
+        "--books-dir",
+        type=Path,
+        default=None,
+        help="Beancount books root (default: resolved books_dir from paths.py)",
+    )
     p.add_argument("--no-copy", action="store_true")
     p.add_argument("--skip-check", action="store_true")
+    p.add_argument("--print-paths", action="store_true")
     p.add_argument(
         "--include-pending",
         action=argparse.BooleanOptionalAction,
@@ -72,11 +74,19 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = p.parse_args(argv)
 
+    if args.books_dir is not None:
+        os.environ["STARTERSLABO_BOOKS"] = str(args.books_dir.expanduser().resolve())
+
+    if args.print_paths:
+        print(describe_paths())
+        return 0
+
     root = books_root()
     if not (root / "main.bean").exists():
         print(
-            f"No books/main.bean at {root}. Copy templates/ from this skill "
-            "or set STARTERSLABO_BOOKS.",
+            f"No books/main.bean at {root}. Copy templates/ from this skill, "
+            "set STARTERSLABO_BOOKS / STARTERSLABO_DATA, or add starterslabo.yaml. "
+            "See docs/PATHS.md.",
             file=sys.stderr,
         )
         return 2
@@ -86,10 +96,15 @@ def main(argv: list[str] | None = None) -> int:
     (root / "generated").mkdir(parents=True, exist_ok=True)
 
     if not args.no_copy:
-        src = (args.from_export or default_export_dir(root)).expanduser().resolve()
+        src = export_dir(cli=args.from_export)
         if not src.is_dir():
-            print(f"Export dir not found: {src}", file=sys.stderr)
-            return 2
+            # Fixtures fallback for skill dry-runs
+            fixtures = _SCRIPTS.parent / "fixtures"
+            if fixtures.is_dir() and any(fixtures.glob("*.csv")):
+                src = fixtures
+            else:
+                print(f"Export dir not found: {src}", file=sys.stderr)
+                return 2
         copied = 0
         for path in src.glob("*.csv"):
             shutil.copy2(path, inbox / path.name)

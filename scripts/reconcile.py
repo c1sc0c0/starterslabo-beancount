@@ -13,19 +13,12 @@ from pathlib import Path
 
 
 def books_root() -> Path:
-    import os
+    here = Path(__file__).resolve().parent
+    if str(here) not in sys.path:
+        sys.path.insert(0, str(here))
+    from paths import books_dir
 
-    env = (os.environ.get("STARTERSLABO_BOOKS") or "").strip()
-    if env:
-        return Path(env).expanduser().resolve()
-    here = Path(__file__).resolve()
-    for parent in here.parents:
-        candidate = parent / "books"
-        if (candidate / "main.bean").exists():
-            return candidate
-        if parent.name == "books" and (parent / "main.bean").exists():
-            return parent
-    return here.parents[2]
+    return books_dir()
 
 
 def parse_resultaten(path: Path) -> list[dict]:

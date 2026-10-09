@@ -20,25 +20,13 @@ PORTAL_ACCOUNT_RE = re.compile(r"^(\d{6})\s*(?:-\s*(.*))?$")
 
 
 def books_root() -> Path:
-    """Resolve private books/ directory.
+    """Resolve private books/ directory (see paths.py / docs/PATHS.md)."""
+    here = Path(__file__).resolve().parent
+    if str(here) not in sys.path:
+        sys.path.insert(0, str(here))
+    from paths import books_dir
 
-    Order: STARTERSLABO_BOOKS env → walk parents for books/main.bean →
-    legacy path when this file lives in books/imports/starterslabo/.
-    """
-    import os
-
-    env = (os.environ.get("STARTERSLABO_BOOKS") or "").strip()
-    if env:
-        return Path(env).expanduser().resolve()
-    here = Path(__file__).resolve()
-    for parent in here.parents:
-        candidate = parent / "books"
-        if (candidate / "main.bean").exists():
-            return candidate
-        if parent.name == "books" and (parent / "main.bean").exists():
-            return parent
-    # scripts living at books/imports/starterslabo/normalize.py
-    return here.parents[2]
+    return books_dir()
 
 
 def stable_id(kind: str, date: str, payee: str, amount: str, narration: str, boekstuknr: str) -> str:

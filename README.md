@@ -96,8 +96,9 @@ Before push: `git status` must not list real customer names or portal passwords.
 ## Related
 
 - [starterslabo-export](https://github.com/c1sc0c0/starterslabo-export) — Rapport → CSV  
-- [starterlabo-invoices](https://github.com/c1sc0c0/starterlabo-invoices) — verkoopfactuur drafts  
 - [starterslabo-skills](https://github.com/c1sc0c0/starterslabo-skills) — skill index  
+- [starterslabo-costs](https://github.com/c1sc0c0/starterslabo-costs) — onkostennota  
+- [starterslabo-km](https://github.com/c1sc0c0/starterslabo-km) — kilometervergoeding Excel  
 
 ## License
 
